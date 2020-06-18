@@ -1,0 +1,26 @@
+version: "2.3"
+
+services:
+  cvat:
+    environment:
+      CVAT_SHARE_URL: "Mounted from /datadrive/datasets host directory"
+      ALLOWED_HOSTS: "*"
+    volumes:
+      - cvat_share:/home/django/share:ro
+
+  cvat_proxy:
+    environment:
+      CVAT_HOST: promcvat.northeurope.cloudapp.azure.com
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./letsencrypt-webroot:/var/tmp/letsencrypt-webroot
+      - /root/.acme.sh:/root/.acme.sh
+
+volumes:
+  cvat_share:
+    driver_opts:
+      type: none
+      device: /datadrive/datasets
+      o: bind
