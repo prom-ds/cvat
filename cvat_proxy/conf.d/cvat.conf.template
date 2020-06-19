@@ -32,4 +32,9 @@ server {
     location @annotation_ui {
         proxy_pass              http://cvat:8080;
     }
+
+    location ^~ /.well-known/acme-challenge/ {
+      default_type "text/plain";
+      root /var/tmp/letsencrypt-webroot;
+    }
 }
