@@ -32,97 +32,96 @@ function JobListComponent(props: Props & RouteComponentProps): JSX.Element {
         taskInstance,
         registeredUsers,
         onJobUpdate,
-        history: {
-            push,
-        },
+        history: { push },
     } = props;
 
     const { jobs, id: taskId } = taskInstance;
-    const columns = [{
-        title: 'Job',
-        dataIndex: 'job',
-        key: 'job',
-        render: (id: number): JSX.Element => (
-            <div>
-                <Button
-                    type='link'
-                    onClick={(e: React.MouseEvent): void => {
-                        e.preventDefault();
-                        push(`/tasks/${taskId}/jobs/${id}`);
-                    }}
-                    href={`/tasks/${taskId}/jobs/${id}`}
-                >
-                    {`Job #${id}`}
-                </Button>
-                |
-                <Tooltip title='Old version of UI is deprecated and will be removed from
-                                new versions of UI. We still recomend it only if you use
-                                specific features from it like cuboids annotation.'
-                >
-                    <Button type='link' href={`${baseURL}/?id=${id}`}>Old UI</Button>
-                </Tooltip>
-            </div>
-        ),
-    }, {
-        title: 'Frames',
-        dataIndex: 'frames',
-        key: 'frames',
-        className: 'cvat-text-color',
-    }, {
-        title: 'Status',
-        dataIndex: 'status',
-        key: 'status',
-        render: (status: string): JSX.Element => {
-            let progressColor = null;
-            if (status === 'completed') {
-                progressColor = 'cvat-job-completed-color';
-            } else if (status === 'validation') {
-                progressColor = 'cvat-job-validation-color';
-            } else {
-                progressColor = 'cvat-job-annotation-color';
-            }
-
-            return (
-                <Text strong className={progressColor}>{ status }</Text>
-            );
+    const columns = [
+        {
+            title: 'Job',
+            dataIndex: 'job',
+            key: 'job',
+            render: (id: number): JSX.Element => (
+                <div>
+                    <Button
+                        type='link'
+                        onClick={(e: React.MouseEvent): void => {
+                            e.preventDefault();
+                            push(`/tasks/${taskId}/jobs/${id}`);
+                        }}
+                        href={`/tasks/${taskId}/jobs/${id}`}
+                    >
+                        {`Job #${id}`}
+                    </Button>
+                </div>
+            ),
         },
-    }, {
-        title: 'Started on',
-        dataIndex: 'started',
-        key: 'started',
-        className: 'cvat-text-color',
-    }, {
-        title: 'Duration',
-        dataIndex: 'duration',
-        key: 'duration',
-        className: 'cvat-text-color',
-    }, {
-        title: 'Assignee',
-        dataIndex: 'assignee',
-        key: 'assignee',
-        render: (jobInstance: any): JSX.Element => {
-            const assignee = jobInstance.assignee ? jobInstance.assignee.username : null;
-
-            return (
-                <UserSelector
-                    users={registeredUsers}
-                    value={assignee}
-                    onChange={(value: string): void => {
-                        let [userInstance] = [...registeredUsers]
-                            .filter((user: any) => user.username === value);
-
-                        if (userInstance === undefined) {
-                            userInstance = null;
-                        }
-
-                        // eslint-disable-next-line
-                        jobInstance.assignee = userInstance;
-                        onJobUpdate(jobInstance);
-                    }}
-                />
-            );
+        {
+            title: 'Frames',
+            dataIndex: 'frames',
+            key: 'frames',
+            className: 'cvat-text-color',
         },
-    }];
+        {
+            title: 'Status',
+            dataIndex: 'status',
+            key: 'status',
+            render: (status: string): JSX.Element => {
+                let progressColor = null;
+                if (status === 'completed') {
+                    progressColor = 'cvat-job-completed-color';
+                } else if (status === 'validation') {
+                    progressColor = 'cvat-job-validation-color';
+                } else {
+                    progressColor = 'cvat-job-annotation-color';
+                }
+
+                return (
+                    <Text strong className={progressColor}>
+                        {status}
+                    </Text>
+                );
+            },
+        },
+        {
+            title: 'Started on',
+            dataIndex: 'started',
+            key: 'started',
+            className: 'cvat-text-color',
+        },
+        {
+            title: 'Duration',
+            dataIndex: 'duration',
+            key: 'duration',
+            className: 'cvat-text-color',
+        },
+        {
+            title: 'Assignee',
+            dataIndex: 'assignee',
+            key: 'assignee',
+            render: (jobInstance: any): JSX.Element => {
+                const assignee = jobInstance.assignee ? jobInstance.assignee.username : null;
+
+                return (
+                    <UserSelector
+                        users={registeredUsers}
+                        value={assignee}
+                        onChange={(value: string): void => {
+                            let [userInstance] = [...registeredUsers].filter((user: any) => user.username === value);
+
+                            if (userInstance === undefined) {
+                                userInstance = null;
+                            }
+
+                            // eslint-disable-next-line
+                            jobInstance.assignee = userInstance;
+                            onJobUpdate(jobInstance);
+                        }}
+                    />
+                );
+            },
+        },
+    ];
 
     let completed = 0;
     const data = jobs.reduce((acc: any[], job: any) => {
@@ -150,7 +149,7 @@ function JobListComponent(props: Props & RouteComponentProps): JSX.Element {
             <Row type='flex' justify='space-between' align='middle'>
                 <Col>
                     <Text className='cvat-text-color cvat-jobs-header'> Jobs </Text>
-                    <Tooltip trigger='click' title='Copied to clipboard!'>
+                    <Tooltip trigger='click' title='Copied to clipboard!' mouseLeaveDelay={0}>
                         <Button
                             type='link'
                             onClick={(): void => {
@@ -158,10 +157,14 @@ function JobListComponent(props: Props & RouteComponentProps): JSX.Element {
                                 const [latestJob] = [...taskInstance.jobs].reverse();
                                 for (const job of taskInstance.jobs) {
                                     serialized += `Job #${job.id}`.padEnd(`${latestJob.id}`.length + 6, ' ');
-                                    serialized += `: ${baseURL}/?id=${job.id}`
-                                        .padEnd(`${latestJob.id}`.length + baseURL.length + 8, ' ');
-                                    serialized += `: [${job.startFrame}-${job.stopFrame}]`
-                                        .padEnd(`${latestJob.startFrame}${latestJob.stopFrame}`.length + 5, ' ');
+                                    serialized += `: ${baseURL}/?id=${job.id}`.padEnd(
+                                        `${latestJob.id}`.length + baseURL.length + 8,
+                                        ' ',
+                                    );
+                                    serialized += `: [${job.startFrame}-${job.stopFrame}]`.padEnd(
+                                        `${latestJob.startFrame}${latestJob.stopFrame}`.length + 5,
+                                        ' ',
+                                    );
 
                                     if (job.assignee) {
                                         serialized += `\t assigned to: ${job.assignee.username}`;
@@ -177,17 +180,10 @@ function JobListComponent(props: Props & RouteComponentProps): JSX.Element {
                     </Tooltip>
                 </Col>
                 <Col>
-                    <Text className='cvat-text-color'>
-                        {`${completed} of ${data.length} jobs`}
-                    </Text>
+                    <Text className='cvat-text-color'>{`${completed} of ${data.length} jobs`}</Text>
                 </Col>
             </Row>
-            <Table
-                className='cvat-task-jobs-table'
-                columns={columns}
-                dataSource={data}
-                size='small'
-            />
+            <Table className='cvat-task-jobs-table' columns={columns} dataSource={data} size='small' />
         </div>
     );
 }

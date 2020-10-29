@@ -9,19 +9,15 @@ import { AuthActionTypes } from 'actions/auth-actions';
 import { SettingsActionTypes } from 'actions/settings-actions';
 import { AnnotationActionTypes } from 'actions/annotation-actions';
 
-import {
-    SettingsState,
-    GridColor,
-    FrameSpeed,
-    ColorBy,
-} from './interfaces';
+import { SettingsState, GridColor, FrameSpeed, ColorBy } from './interfaces';
 
 const defaultState: SettingsState = {
     shapes: {
-        colorBy: ColorBy.INSTANCE,
+        colorBy: ColorBy.LABEL,
         opacity: 3,
         selectedOpacity: 30,
-        blackBorders: false,
+        outlined: false,
+        outlineColor: '#000000',
         showBitmap: false,
         showProjections: false,
     },
@@ -34,6 +30,7 @@ const defaultState: SettingsState = {
         showAllInterpolationTracks: false,
     },
     player: {
+        canvasBackgroundColor: '#ffffff',
         frameStep: 10,
         frameSpeed: FrameSpeed.Usual,
         resetZoom: false,
@@ -46,6 +43,7 @@ const defaultState: SettingsState = {
         contrastLevel: 100,
         saturationLevel: 100,
     },
+    showDialog: false,
 };
 
 export default (state = defaultState, action: AnyAction): SettingsState => {
@@ -122,12 +120,13 @@ export default (state = defaultState, action: AnyAction): SettingsState => {
                 },
             };
         }
-        case SettingsActionTypes.CHANGE_SHAPES_BLACK_BORDERS: {
+        case SettingsActionTypes.CHANGE_SHAPES_OUTLINED_BORDERS: {
             return {
                 ...state,
                 shapes: {
                     ...state.shapes,
-                    blackBorders: action.payload.blackBorders,
+                    outlined: action.payload.outlined,
+                    outlineColor: action.payload.color,
                 },
             };
         }
@@ -255,6 +254,21 @@ export default (state = defaultState, action: AnyAction): SettingsState => {
                     ...state.workspace,
                     automaticBordering: action.payload.automaticBordering,
                 },
+            };
+        }
+        case SettingsActionTypes.CHANGE_CANVAS_BACKGROUND_COLOR: {
+            return {
+                ...state,
+                player: {
+                    ...state.player,
+                    canvasBackgroundColor: action.payload.color,
+                },
+            };
+        }
+        case SettingsActionTypes.SWITCH_SETTINGS_DIALOG: {
+            return {
+                ...state,
+                showDialog: typeof action.payload.show === 'undefined' ? !state.showDialog : action.payload.show,
             };
         }
         case BoundariesActionTypes.RESET_AFTER_ERROR:

@@ -7,6 +7,7 @@ import Icon from 'antd/lib/icon';
 import Tooltip from 'antd/lib/tooltip';
 import Text from 'antd/lib/typography/Text';
 
+import consts from 'consts';
 import { Label } from './common';
 
 interface ConstructorViewerItemProps {
@@ -17,17 +18,12 @@ interface ConstructorViewerItemProps {
 }
 
 export default function ConstructorViewerItem(props: ConstructorViewerItemProps): JSX.Element {
-    const {
-        color,
-        label,
-        onUpdate,
-        onDelete,
-    } = props;
+    const { color, label, onUpdate, onDelete } = props;
 
     return (
-        <div style={{ background: color }} className='cvat-constructor-viewer-item'>
+        <div style={{ background: color || consts.NEW_LABEL_COLOR }} className='cvat-constructor-viewer-item'>
             <Text>{label.name}</Text>
-            <Tooltip title='Update attributes'>
+            <Tooltip title='Update attributes' mouseLeaveDelay={0}>
                 <span
                     role='button'
                     tabIndex={0}
@@ -37,19 +33,18 @@ export default function ConstructorViewerItem(props: ConstructorViewerItemProps)
                     <Icon theme='filled' type='edit' />
                 </span>
             </Tooltip>
-            { label.id < 0
-                && (
-                    <Tooltip title='Delete label'>
-                        <span
-                            role='button'
-                            tabIndex={0}
-                            onClick={(): void => onDelete(label)}
-                            onKeyPress={(): boolean => false}
-                        >
-                            <Icon type='close' />
-                        </span>
-                    </Tooltip>
-                )}
+            {label.id < 0 && (
+                <Tooltip title='Delete label' mouseLeaveDelay={0}>
+                    <span
+                        role='button'
+                        tabIndex={0}
+                        onClick={(): void => onDelete(label)}
+                        onKeyPress={(): boolean => false}
+                    >
+                        <Icon type='close' />
+                    </span>
+                </Tooltip>
+            )}
         </div>
     );
 }

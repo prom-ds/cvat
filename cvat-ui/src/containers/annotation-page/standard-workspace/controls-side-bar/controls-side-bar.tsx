@@ -10,6 +10,7 @@ import {
     mergeObjects,
     groupObjects,
     splitTrack,
+    redrawShapeAsync,
     rotateCurrentFrame,
     repeatDrawShapeAsync,
     pasteShapeAsync,
@@ -34,25 +35,18 @@ interface DispatchToProps {
     resetGroup(): void;
     repeatDrawShape(): void;
     pasteShape(): void;
+    redrawShape(): void;
 }
 
 function mapStateToProps(state: CombinedState): StateToProps {
     const {
         annotation: {
-            canvas: {
-                instance: canvasInstance,
-                activeControl,
-            },
+            canvas: { instance: canvasInstance, activeControl },
         },
         settings: {
-            player: {
-                rotateAll,
-            },
+            player: { rotateAll },
         },
-        shortcuts: {
-            keyMap,
-            normalizedKeyMap,
-        },
+        shortcuts: { keyMap, normalizedKeyMap },
     } = state;
 
     return {
@@ -87,10 +81,10 @@ function dispatchToProps(dispatch: any): DispatchToProps {
         resetGroup(): void {
             dispatch(resetAnnotationsGroup());
         },
+        redrawShape(): void {
+            dispatch(redrawShapeAsync());
+        },
     };
 }
 
-export default connect(
-    mapStateToProps,
-    dispatchToProps,
-)(ControlsSideBarComponent);
+export default connect(mapStateToProps, dispatchToProps)(ControlsSideBarComponent);

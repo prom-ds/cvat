@@ -10,6 +10,8 @@ INSTALLED_APPS += [
     'mod_wsgi.server',
 ]
 
+NUCLIO['HOST'] = os.getenv('CVAT_NUCLIO_HOST', 'nuclio')
+
 for key in RQ_QUEUES:
     RQ_QUEUES[key]['HOST'] = os.getenv('CVAT_REDIS_HOST', 'cvat_redis')
 
@@ -26,8 +28,8 @@ DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
         'HOST': os.getenv('CVAT_POSTGRES_HOST', 'cvat_db'),
-        'NAME': 'cvat',
-        'USER': 'root',
+        'NAME': os.getenv('CVAT_POSTGRES_DBNAME', 'cvat'),
+        'USER': os.getenv('CVAT_POSTGRES_USER', 'root'),
         'PASSWORD': os.getenv('CVAT_POSTGRES_PASSWORD', ''),
     }
 }

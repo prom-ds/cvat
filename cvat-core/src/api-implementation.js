@@ -1,32 +1,19 @@
-/*
-* Copyright (C) 2019 Intel Corporation
-* SPDX-License-Identifier: MIT
-*/
-
-/* eslint prefer-arrow-callback: [ "error", { "allowNamedFunctions": true } ] */
-
-/* global
-    require:false
-*/
+// Copyright (C) 2019-2020 Intel Corporation
+//
+// SPDX-License-Identifier: MIT
 
 (() => {
     const PluginRegistry = require('./plugins');
     const serverProxy = require('./server-proxy');
+    const lambdaManager = require('./lambda-manager');
     const {
-        isBoolean,
-        isInteger,
-        isEnum,
-        isString,
-        checkFilter,
+        isBoolean, isInteger, isEnum, isString, checkFilter,
     } = require('./common');
 
-    const {
-        TaskStatus,
-        TaskMode,
-    } = require('./enums');
+    const { TaskStatus, TaskMode } = require('./enums');
 
     const User = require('./user');
-    const { AnnotationFormats } = require('./annotation-formats.js');
+    const { AnnotationFormats } = require('./annotation-formats');
     const { ArgumentError } = require('./exceptions');
     const { Task } = require('./session');
 
@@ -54,6 +41,13 @@
         cvat.plugins.list.implementation = PluginRegistry.list;
         cvat.plugins.register.implementation = PluginRegistry.register.bind(cvat);
 
+        cvat.lambda.list.implementation = lambdaManager.list.bind(lambdaManager);
+        cvat.lambda.run.implementation = lambdaManager.run.bind(lambdaManager);
+        cvat.lambda.call.implementation = lambdaManager.call.bind(lambdaManager);
+        cvat.lambda.cancel.implementation = lambdaManager.cancel.bind(lambdaManager);
+        cvat.lambda.listen.implementation = lambdaManager.listen.bind(lambdaManager);
+        cvat.lambda.requests.implementation = lambdaManager.requests.bind(lambdaManager);
+
         cvat.server.about.implementation = async () => {
             const result = await serverProxy.server.about();
             return result;
@@ -74,10 +68,26 @@
             return result;
         };
 
-        cvat.server.register.implementation = async (username, firstName, lastName,
-            email, password1, password2, userConfirmations) => {
-            await serverProxy.server.register(username, firstName, lastName, email,
-                password1, password2, userConfirmations);
+        cvat.server.register.implementation = async (
+            username,
+            firstName,
+            lastName,
+            email,
+            password1,
+            password2,
+            userConfirmations,
+        ) => {
+            const user = await serverProxy.server.register(
+                username,
+                firstName,
+                lastName,
+                email,
+                password1,
+                password2,
+                userConfirmations,
+            );
+
+            return new User(user);
         };
 
         cvat.server.login.implementation = async (username, password) => {
@@ -86,6 +96,18 @@
 
         cvat.server.logout.implementation = async () => {
             await serverProxy.server.logout();
+        };
+
+        cvat.server.changePassword.implementation = async (oldPassword, newPassword1, newPassword2) => {
+            await serverProxy.server.changePassword(oldPassword, newPassword1, newPassword2);
+        };
+
+        cvat.server.requestPasswordReset.implementation = async (email) => {
+            await serverProxy.server.requestPasswordReset(email);
+        };
+
+        cvat.server.resetPassword.implementation = async (newPassword1, newPassword2, uid, token) => {
+            await serverProxy.server.resetPassword(newPassword1, newPassword2, uid, token);
         };
 
         cvat.server.authorized.implementation = async () => {
@@ -121,16 +143,12 @@
                 jobID: isInteger,
             });
 
-            if (('taskID' in filter) && ('jobID' in filter)) {
-                throw new ArgumentError(
-                    'Only one of fields "taskID" and "jobID" allowed simultaneously',
-                );
+            if ('taskID' in filter && 'jobID' in filter) {
+                throw new ArgumentError('Only one of fields "taskID" and "jobID" allowed simultaneously');
             }
 
             if (!Object.keys(filter).length) {
-                throw new ArgumentError(
-                    'Job filter must not be empty',
-                );
+                throw new ArgumentError('Job filter must not be empty');
             }
 
             let tasks = null;
@@ -138,19 +156,17 @@
                 tasks = await serverProxy.tasks.getTasks(`id=${filter.taskID}`);
             } else {
                 const job = await serverProxy.jobs.getJob(filter.jobID);
-                if (typeof (job.task_id) !== 'undefined') {
+                if (typeof job.task_id !== 'undefined') {
                     tasks = await serverProxy.tasks.getTasks(`id=${job.task_id}`);
                 }
             }
 
             // If task was found by its id, then create task instance and get Job instance from it
             if (tasks !== null && tasks.length) {
-                const users = (await serverProxy.users.getUsers())
-                    .map((userData) => new User(userData));
+                const users = (await serverProxy.users.getUsers()).map((userData) => new User(userData));
                 const task = new Task(attachUsers(tasks[0], users));
 
-                return filter.jobID ? task.jobs
-                    .filter((job) => job.id === filter.jobID) : task.jobs;
+                return filter.jobID ? task.jobs.filter((job) => job.id === filter.jobID) : task.jobs;
             }
 
             return [];
@@ -170,17 +186,13 @@
 
             if ('search' in filter && Object.keys(filter).length > 1) {
                 if (!('page' in filter && Object.keys(filter).length === 2)) {
-                    throw new ArgumentError(
-                        'Do not use the filter field "search" with others',
-                    );
+                    throw new ArgumentError('Do not use the filter field "search" with others');
                 }
             }
 
             if ('id' in filter && Object.keys(filter).length > 1) {
                 if (!('page' in filter && Object.keys(filter).length === 2)) {
-                    throw new ArgumentError(
-                        'Do not use the filter field "id" with others',
-                    );
+                    throw new ArgumentError('Do not use the filter field "id" with others');
                 }
             }
 
@@ -191,17 +203,18 @@
                 }
             }
 
-            const users = (await serverProxy.users.getUsers())
-                .map((userData) => new User(userData));
+            const users = (await serverProxy.users.getUsers()).map((userData) => new User(userData));
             const tasksData = await serverProxy.tasks.getTasks(searchParams.toString());
-            const tasks = tasksData
-                .map((task) => attachUsers(task, users))
-                .map((task) => new Task(task));
-
+            const tasks = tasksData.map((task) => attachUsers(task, users)).map((task) => new Task(task));
 
             tasks.count = tasksData.count;
 
             return tasks;
+        };
+
+        cvat.server.installedApps.implementation = async () => {
+            const result = await serverProxy.server.installedApps();
+            return result;
         };
 
         return cvat;

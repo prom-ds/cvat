@@ -17,26 +17,30 @@ interface Props {
 }
 
 function RotateControl(props: Props): JSX.Element {
-    const {
-        anticlockwiseShortcut,
-        clockwiseShortcut,
-        rotateFrame,
-    } = props;
+    const { anticlockwiseShortcut, clockwiseShortcut, rotateFrame } = props;
 
     return (
         <Popover
             overlayClassName='cvat-rotate-canvas-controls'
             placement='right'
-            content={(
+            content={
                 <>
-                    <Tooltip title={`Rotate the image anticlockwise ${anticlockwiseShortcut}`} placement='topRight'>
+                    <Tooltip
+                        title={`Rotate the image anticlockwise ${anticlockwiseShortcut}`}
+                        placement='topRight'
+                        mouseLeaveDelay={0}
+                    >
                         <Icon
                             className='cvat-rotate-canvas-controls-left'
                             onClick={(): void => rotateFrame(Rotation.ANTICLOCKWISE90)}
                             component={RotateIcon}
                         />
                     </Tooltip>
-                    <Tooltip title={`Rotate the image clockwise ${clockwiseShortcut}`} placement='topRight'>
+                    <Tooltip
+                        title={`Rotate the image clockwise ${clockwiseShortcut}`}
+                        placement='topRight'
+                        mouseLeaveDelay={0}
+                    >
                         <Icon
                             className='cvat-rotate-canvas-controls-right'
                             onClick={(): void => rotateFrame(Rotation.CLOCKWISE90)}
@@ -44,10 +48,10 @@ function RotateControl(props: Props): JSX.Element {
                         />
                     </Tooltip>
                 </>
-            )}
+            }
             trigger='hover'
         >
-            <Icon component={RotateIcon} />
+            <Icon className='cvat-rotate-canvas-control' component={RotateIcon} />
         </Popover>
     );
 }

@@ -4,7 +4,7 @@
 
 import { ActionUnion, createAction, ThunkAction } from 'utils/redux';
 import getCore from 'cvat-core-wrapper';
-import { UserAgreement } from 'reducers/interfaces'
+import { UserAgreement } from 'reducers/interfaces';
 
 const core = getCore();
 
@@ -29,9 +29,7 @@ export const getUserAgreementsAsync = (): ThunkAction => async (dispatch): Promi
 
     try {
         const userAgreements = await core.server.userAgreements();
-        dispatch(
-            userAgreementsActions.getUserAgreementsSuccess(userAgreements),
-        );
+        dispatch(userAgreementsActions.getUserAgreementsSuccess(userAgreements));
     } catch (error) {
         dispatch(userAgreementsActions.getUserAgreementsFailed(error));
     }

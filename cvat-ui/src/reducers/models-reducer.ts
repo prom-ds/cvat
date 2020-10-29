@@ -2,25 +2,25 @@
 //
 // SPDX-License-Identifier: MIT
 
-import { boundariesActions, BoundariesActionTypes } from 'actions/boundaries-actions';
+import { BoundariesActions, BoundariesActionTypes } from 'actions/boundaries-actions';
 import { ModelsActionTypes, ModelsActions } from 'actions/models-actions';
 import { AuthActionTypes, AuthActions } from 'actions/auth-actions';
-import { ModelsState } from './interfaces';
+import { ModelsState, Model } from './interfaces';
 
 const defaultState: ModelsState = {
     initialized: false,
     fetching: false,
     creatingStatus: '',
-    models: [],
+    interactors: [],
+    detectors: [],
+    trackers: [],
+    reid: [],
     visibleRunWindows: false,
     activeRunTask: null,
     inferences: {},
 };
 
-export default function (
-    state = defaultState,
-    action: ModelsActions | AuthActions | boundariesActions,
-): ModelsState {
+export default function (state = defaultState, action: ModelsActions | AuthActions | BoundariesActions): ModelsState {
     switch (action.type) {
         case ModelsActionTypes.GET_MODELS: {
             return {
@@ -32,7 +32,10 @@ export default function (
         case ModelsActionTypes.GET_MODELS_SUCCESS: {
             return {
                 ...state,
-                models: action.payload.models,
+                interactors: action.payload.models.filter((model: Model) => ['interactor'].includes(model.type)),
+                detectors: action.payload.models.filter((model: Model) => ['detector'].includes(model.type)),
+                trackers: action.payload.models.filter((model: Model) => ['tracker'].includes(model.type)),
+                reid: action.payload.models.filter((model: Model) => ['reid'].includes(model.type)),
                 initialized: true,
                 fetching: false,
             };
@@ -42,39 +45,6 @@ export default function (
                 ...state,
                 initialized: true,
                 fetching: false,
-            };
-        }
-        case ModelsActionTypes.DELETE_MODEL_SUCCESS: {
-            return {
-                ...state,
-                models: state.models.filter(
-                    (model): boolean => model.id !== action.payload.id,
-                ),
-            };
-        }
-        case ModelsActionTypes.CREATE_MODEL: {
-            return {
-                ...state,
-                creatingStatus: '',
-            };
-        }
-        case ModelsActionTypes.CREATE_MODEL_STATUS_UPDATED: {
-            return {
-                ...state,
-                creatingStatus: action.payload.status,
-            };
-        }
-        case ModelsActionTypes.CREATE_MODEL_FAILED: {
-            return {
-                ...state,
-                creatingStatus: '',
-            };
-        }
-        case ModelsActionTypes.CREATE_MODEL_SUCCESS: {
-            return {
-                ...state,
-                initialized: false,
-                creatingStatus: 'CREATED',
             };
         }
         case ModelsActionTypes.SHOW_RUN_MODEL_DIALOG: {
@@ -93,15 +63,25 @@ export default function (
         }
         case ModelsActionTypes.GET_INFERENCE_STATUS_SUCCESS: {
             const { inferences } = state;
+
             if (action.payload.activeInference.status === 'finished') {
-                delete inferences[action.payload.taskID];
-            } else {
-                inferences[action.payload.taskID] = action.payload.activeInference;
+                return {
+                    ...state,
+                    inferences: Object.fromEntries(
+                        Object.entries(inferences).filter(([key]): boolean => +key !== action.payload.taskID),
+                    ),
+                };
             }
+
+            const update: any = {};
+            update[action.payload.taskID] = action.payload.activeInference;
 
             return {
                 ...state,
-                inferences: { ...inferences },
+                inferences: {
+                    ...state.inferences,
+                    ...update,
+                },
             };
         }
         case ModelsActionTypes.GET_INFERENCE_STATUS_FAILED: {

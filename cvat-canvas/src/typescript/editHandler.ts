@@ -6,7 +6,7 @@ import * as SVG from 'svg.js';
 import 'svg.select.js';
 
 import consts from './consts';
-import { translateFromSVG, pointsToArray } from './shared';
+import { translateFromSVG, pointsToNumberArray } from './shared';
 import { EditData, Geometry, Configuration } from './canvasModel';
 import { AutoborderHandler } from './autoborderHandler';
 
@@ -28,10 +28,43 @@ export class EditHandlerImpl implements EditHandler {
     private clones: SVG.Polygon[];
     private autobordersEnabled: boolean;
 
+    private setupTrailingPoint(circle: SVG.Circle): void {
+        const head = this.editedShape.attr('points').split(' ').slice(0, this.editData.pointID).join(' ');
+        circle.on('mouseenter', (): void => {
+            circle.attr({
+                'stroke-width': consts.POINTS_SELECTED_STROKE_WIDTH / this.geometry.scale,
+            });
+        });
+
+        circle.on('mouseleave', (): void => {
+            circle.attr({
+                'stroke-width': consts.POINTS_STROKE_WIDTH / this.geometry.scale,
+            });
+        });
+
+        const minimumPoints = 2;
+        circle.on('mousedown', (e: MouseEvent): void => {
+            if (e.button !== 0) return;
+            const { offset } = this.geometry;
+            const stringifiedPoints = `${head} ${this.editLine.node.getAttribute('points').slice(0, -2)}`;
+            const points = pointsToNumberArray(stringifiedPoints)
+                .slice(0, -2)
+                .map((coord: number): number => coord - offset);
+
+            if (points.length >= minimumPoints * 2) {
+                const { state } = this.editData;
+                this.edit({
+                    enabled: false,
+                });
+                this.onEditDone(state, points);
+            }
+        });
+    }
+
     private startEdit(): void {
         // get started coordinates
         const [clientX, clientY] = translateFromSVG(
-            this.canvas.node as any as SVGSVGElement,
+            (this.canvas.node as any) as SVGSVGElement,
             this.editedShape.attr('points').split(' ')[this.editData.pointID].split(','),
         );
 
@@ -60,10 +93,7 @@ export class EditHandlerImpl implements EditHandler {
                     (this.editLine as any).draw('point', e);
                 } else {
                     const deltaTreshold = 15;
-                    const delta = Math.sqrt(
-                        ((e.clientX - lastDrawnPoint.x) ** 2)
-                        + ((e.clientY - lastDrawnPoint.y) ** 2),
-                    );
+                    const delta = Math.sqrt((e.clientX - lastDrawnPoint.x) ** 2 + (e.clientY - lastDrawnPoint.y) ** 2);
                     if (delta > deltaTreshold) {
                         (this.editLine as any).draw('point', e);
                     }
@@ -72,16 +102,31 @@ export class EditHandlerImpl implements EditHandler {
         });
 
         this.editLine = (this.canvas as any).polyline();
-        (this.editLine as any).addClass('cvat_canvas_shape_drawing').style({
-            'pointer-events': 'none',
-            'fill-opacity': 0,
-        }).attr({
-            'data-origin-client-id': this.editData.state.clientID,
-        }).on('drawstart drawpoint', (e: CustomEvent): void => {
-            this.transform(this.geometry);
-            lastDrawnPoint.x = e.detail.event.clientX;
-            lastDrawnPoint.y = e.detail.event.clientY;
-        }).draw(dummyEvent, { snapToGrid: 0.1 });
+        if (this.editData.state.shapeType === 'polyline') {
+            (this.editLine as any).on('drawpoint', (e: CustomEvent): void => {
+                const circle = (e.target as any).instance.remember('_paintHandler').set.last();
+                if (circle) this.setupTrailingPoint(circle);
+            });
+        }
+
+        const strokeColor = this.editedShape.attr('stroke');
+        (this.editLine as any)
+            .addClass('cvat_canvas_shape_drawing')
+            .style({
+                'pointer-events': 'none',
+                'fill-opacity': 0,
+                stroke: strokeColor,
+            })
+            .attr({
+                'data-origin-client-id': this.editData.state.clientID,
+            })
+            .on('drawstart drawpoint', (e: CustomEvent): void => {
+                this.transform(this.geometry);
+                lastDrawnPoint.x = e.detail.event.clientX;
+                lastDrawnPoint.y = e.detail.event.clientY;
+            })
+            .on('drawupdate', (): void => this.transform(this.geometry))
+            .draw(dummyEvent, { snapToGrid: 0.1 });
 
         if (this.editData.state.shapeType === 'points') {
             this.editLine.attr('stroke-width', 0);
@@ -90,7 +135,7 @@ export class EditHandlerImpl implements EditHandler {
 
         this.setupEditEvents();
         if (this.autobordersEnabled) {
-            this.autoborderHandler.autoborder(true, this.editLine, true);
+            this.autoborderHandler.autoborder(true, this.editLine, this.editData.state.clientID);
         }
     }
 
@@ -99,9 +144,7 @@ export class EditHandlerImpl implements EditHandler {
             if (e.button === 0 && !e.altKey) {
                 (this.editLine as any).draw('point', e);
             } else if (e.button === 2 && this.editLine) {
-                if (this.editData.state.shapeType === 'points'
-                    || this.editLine.attr('points').split(' ').length > 2
-                ) {
+                if (this.editData.state.shapeType === 'points' || this.editLine.attr('points').split(' ').length > 2) {
                     (this.editLine as any).draw('undo');
                 }
             }
@@ -110,8 +153,7 @@ export class EditHandlerImpl implements EditHandler {
 
     private selectPolygon(shape: SVG.Polygon): void {
         const { offset } = this.geometry;
-        const points = pointsToArray(shape.attr('points'))
-            .map((coord: number): number => coord - offset);
+        const points = pointsToNumberArray(shape.attr('points')).map((coord: number): number => coord - offset);
 
         const { state } = this.editData;
         this.edit({
@@ -126,8 +168,7 @@ export class EditHandlerImpl implements EditHandler {
         }
 
         // Get stop point and all points
-        const stopPointID = Array.prototype.indexOf
-            .call((e.target as HTMLElement).parentElement.children, e.target);
+        const stopPointID = Array.prototype.indexOf.call((e.target as HTMLElement).parentElement.children, e.target);
         const oldPoints = this.editedShape.attr('points').trim().split(' ');
         const linePoints = this.editLine.attr('points').trim().split(' ');
 
@@ -137,75 +178,112 @@ export class EditHandlerImpl implements EditHandler {
         }
 
         // Compute new point array
-        const [start, stop] = [this.editData.pointID, stopPointID]
-            .sort((a, b): number => +a - +b);
+        const [start, stop] = [this.editData.pointID, stopPointID].sort((a, b): number => +a - +b);
 
-        if (this.editData.state.shapeType === 'polygon') {
-            if (start !== this.editData.pointID) {
-                linePoints.reverse();
+        if (this.editData.state.shapeType !== 'polygon') {
+            let points = null;
+            const { offset } = this.geometry;
+
+            if (this.editData.state.shapeType === 'polyline') {
+                if (start !== this.editData.pointID) {
+                    linePoints.reverse();
+                }
+                points = oldPoints
+                    .slice(0, start)
+                    .concat(linePoints)
+                    .concat(oldPoints.slice(stop + 1));
+            } else {
+                points = oldPoints.concat(linePoints.slice(0, -1));
             }
 
-            const firstPart = oldPoints.slice(0, start)
-                .concat(linePoints)
-                .concat(oldPoints.slice(stop + 1));
+            points = pointsToNumberArray(points.join(' ')).map((coord: number): number => coord - offset);
 
-            linePoints.reverse();
-            const secondPart = oldPoints.slice(start + 1, stop)
-                .concat(linePoints);
-
-            if (firstPart.length < 3 || secondPart.length < 3) {
-                this.cancel();
-                return;
-            }
-
-            for (const points of [firstPart, secondPart]) {
-                this.clones.push(this.canvas.polygon(points.join(' '))
-                    .attr('fill', this.editedShape.attr('fill'))
-                    .attr('fill-opacity', '0.5')
-                    .addClass('cvat_canvas_shape'));
-            }
-
-            for (const clone of this.clones) {
-                clone.on('click', (): void => this.selectPolygon(clone));
-                clone.on('mouseenter', (): void => {
-                    clone.addClass('cvat_canvas_shape_splitting');
-                }).on('mouseleave', (): void => {
-                    clone.removeClass('cvat_canvas_shape_splitting');
-                });
-            }
-
-            // We do not need these events any more
-            this.canvas.off('mousedown.edit');
-            this.canvas.off('mousemove.edit');
-
-            (this.editLine as any).draw('stop');
-            this.editLine.remove();
-            this.editLine = null;
+            const { state } = this.editData;
+            this.edit({
+                enabled: false,
+            });
+            this.onEditDone(state, points);
 
             return;
         }
 
-        let points = null;
-        const { offset } = this.geometry;
-        if (this.editData.state.shapeType === 'polyline') {
-            if (start !== this.editData.pointID) {
-                linePoints.reverse();
+        const cutIndexes1 = oldPoints.reduce(
+            (acc: string[], _: string, i: number) => (i >= stop || i <= start ? [...acc, i] : acc),
+            [],
+        );
+        const cutIndexes2 = oldPoints.reduce(
+            (acc: string[], _: string, i: number) => (i <= stop && i >= start ? [...acc, i] : acc),
+            [],
+        );
+
+        const curveLength = (indexes: number[]): number => {
+            const points = indexes
+                .map((index: number): string => oldPoints[index])
+                .map((point: string): string[] => point.split(','))
+                .map((point: string[]): number[] => [+point[0], +point[1]]);
+            let length = 0;
+            for (let i = 1; i < points.length; i++) {
+                length += Math.sqrt((points[i][0] - points[i - 1][0]) ** 2 + (points[i][1] - points[i - 1][1]) ** 2);
             }
-            points = oldPoints.slice(0, start)
-                .concat(linePoints)
-                .concat(oldPoints.slice(stop + 1));
-        } else {
-            points = oldPoints.concat(linePoints.slice(0, -1));
+
+            return length;
+        };
+
+        const pointsCriteria = cutIndexes1.length > cutIndexes2.length;
+        const lengthCriteria = curveLength(cutIndexes1) > curveLength(cutIndexes2);
+
+        if (start !== this.editData.pointID) {
+            linePoints.reverse();
         }
 
-        points = pointsToArray(points.join(' '))
-            .map((coord: number): number => coord - offset);
+        const firstPart = oldPoints
+            .slice(0, start)
+            .concat(linePoints)
+            .concat(oldPoints.slice(stop + 1));
+        const secondPart = oldPoints.slice(start, stop).concat(linePoints.slice(1).reverse());
 
-        const { state } = this.editData;
-        this.edit({
-            enabled: false,
-        });
-        this.onEditDone(state, points);
+        if (firstPart.length < 3 || secondPart.length < 3) {
+            this.cancel();
+            return;
+        }
+
+        // We do not need these events any more
+        this.canvas.off('mousedown.edit');
+        this.canvas.off('mousemove.edit');
+
+        (this.editLine as any).draw('stop');
+        this.editLine.remove();
+        this.editLine = null;
+
+        if (pointsCriteria && lengthCriteria) {
+            this.clones.push(this.canvas.polygon(firstPart.join(' ')));
+            this.selectPolygon(this.clones[0]);
+            // left indexes1 and
+        } else if (!pointsCriteria && !lengthCriteria) {
+            this.clones.push(this.canvas.polygon(secondPart.join(' ')));
+            this.selectPolygon(this.clones[0]);
+        } else {
+            for (const points of [firstPart, secondPart]) {
+                this.clones.push(
+                    this.canvas
+                        .polygon(points.join(' '))
+                        .attr('fill', this.editedShape.attr('fill'))
+                        .attr('fill-opacity', '0.5')
+                        .addClass('cvat_canvas_shape'),
+                );
+            }
+
+            for (const clone of this.clones) {
+                clone.on('click', (): void => this.selectPolygon(clone));
+                clone
+                    .on('mouseenter', (): void => {
+                        clone.addClass('cvat_canvas_shape_splitting');
+                    })
+                    .on('mouseleave', (): void => {
+                        clone.removeClass('cvat_canvas_shape_splitting');
+                    });
+            }
+        }
     }
 
     private setupPoints(enabled: boolean): void {
@@ -215,7 +293,7 @@ export class EditHandlerImpl implements EditHandler {
         if (enabled) {
             (this.editedShape as any).selectize(true, {
                 deepSelect: true,
-                pointSize: 2 * consts.BASE_POINT_SIZE / self.geometry.scale,
+                pointSize: (2 * consts.BASE_POINT_SIZE) / self.geometry.scale,
                 rotationPoint: false,
                 pointType(cx: number, cy: number): SVG.Circle {
                     const circle: SVG.Circle = this.nested
@@ -281,9 +359,7 @@ export class EditHandlerImpl implements EditHandler {
     }
 
     private initEditing(): void {
-        this.editedShape = this.canvas
-            .select(`#cvat_canvas_shape_${this.editData.state.clientID}`)
-            .first().clone();
+        this.editedShape = this.canvas.select(`#cvat_canvas_shape_${this.editData.state.clientID}`).first().clone();
         this.setupPoints(true);
         this.startEdit();
         // draw points for this with selected and start editing till another point is clicked
@@ -333,11 +409,11 @@ export class EditHandlerImpl implements EditHandler {
     }
 
     public configurate(configuration: Configuration): void {
-        if (typeof (configuration.autoborders) === 'boolean') {
+        if (typeof configuration.autoborders === 'boolean') {
             this.autobordersEnabled = configuration.autoborders;
             if (this.editLine) {
                 if (this.autobordersEnabled) {
-                    this.autoborderHandler.autoborder(true, this.editLine, true);
+                    this.autoborderHandler.autoborder(true, this.editLine, this.editData.state.clientID);
                 } else {
                     this.autoborderHandler.autoborder(false);
                 }
@@ -365,14 +441,8 @@ export class EditHandlerImpl implements EditHandler {
             const paintHandler = this.editLine.remember('_paintHandler');
 
             for (const point of (paintHandler as any).set.members) {
-                point.attr(
-                    'stroke-width',
-                    `${consts.POINTS_STROKE_WIDTH / geometry.scale}`,
-                );
-                point.attr(
-                    'r',
-                    `${consts.BASE_POINT_SIZE / geometry.scale}`,
-                );
+                point.attr('stroke-width', `${consts.POINTS_STROKE_WIDTH / geometry.scale}`);
+                point.attr('r', `${consts.BASE_POINT_SIZE / geometry.scale}`);
             }
         }
     }

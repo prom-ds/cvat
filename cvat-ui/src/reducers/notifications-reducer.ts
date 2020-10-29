@@ -14,7 +14,7 @@ import { AboutActionTypes } from 'actions/about-actions';
 import { AnnotationActionTypes } from 'actions/annotation-actions';
 import { NotificationsActionType } from 'actions/notification-actions';
 import { BoundariesActionTypes } from 'actions/boundaries-actions';
-import { UserAgreementsActions, UserAgreementsActionTypes } from 'actions/useragreements-actions';
+import { UserAgreementsActionTypes } from 'actions/useragreements-actions';
 
 import { NotificationsState } from './interfaces';
 
@@ -25,6 +25,10 @@ const defaultState: NotificationsState = {
             login: null,
             logout: null,
             register: null,
+            changePassword: null,
+            requestPasswordReset: null,
+            resetPassword: null,
+            loadAuthActions: null,
         },
         tasks: {
             fetching: null,
@@ -48,9 +52,7 @@ const defaultState: NotificationsState = {
             fetching: null,
         },
         models: {
-            creating: null,
             starting: null,
-            deleting: null,
             fetching: null,
             canceling: null,
             metaFetching: null,
@@ -76,6 +78,7 @@ const defaultState: NotificationsState = {
             undo: null,
             redo: null,
             search: null,
+            searchEmptyFrame: null,
             savingLogs: null,
         },
         boundaries: {
@@ -91,6 +94,12 @@ const defaultState: NotificationsState = {
         },
         models: {
             inferenceDone: '',
+        },
+        auth: {
+            changePasswordDone: '',
+            registerDone: '',
+            requestPasswordResetDone: '',
+            resetPasswordDone: '',
         },
     },
 };
@@ -157,6 +166,122 @@ export default function (state = defaultState, action: AnyAction): Notifications
                 },
             };
         }
+        case AuthActionTypes.REGISTER_SUCCESS: {
+            if (!action.payload.user.isVerified) {
+                return {
+                    ...state,
+                    messages: {
+                        ...state.messages,
+                        auth: {
+                            ...state.messages.auth,
+                            registerDone: `To use your account, you need to confirm the email address. \
+                                 We have sent an email with a confirmation link to ${action.payload.user.email}.`,
+                        },
+                    },
+                };
+            }
+
+            return {
+                ...state,
+            };
+        }
+        case AuthActionTypes.CHANGE_PASSWORD_SUCCESS: {
+            return {
+                ...state,
+                messages: {
+                    ...state.messages,
+                    auth: {
+                        ...state.messages.auth,
+                        changePasswordDone: 'New password has been saved.',
+                    },
+                },
+            };
+        }
+        case AuthActionTypes.CHANGE_PASSWORD_FAILED: {
+            return {
+                ...state,
+                errors: {
+                    ...state.errors,
+                    auth: {
+                        ...state.errors.auth,
+                        changePassword: {
+                            message: 'Could not change password',
+                            reason: action.payload.error.toString(),
+                        },
+                    },
+                },
+            };
+        }
+        case AuthActionTypes.REQUEST_PASSWORD_RESET_SUCCESS: {
+            return {
+                ...state,
+                messages: {
+                    ...state.messages,
+                    auth: {
+                        ...state.messages.auth,
+                        requestPasswordResetDone: `Check your email for a link to reset your password.
+                            If it doesn’t appear within a few minutes, check your spam folder.`,
+                    },
+                },
+            };
+        }
+        case AuthActionTypes.REQUEST_PASSWORD_RESET_FAILED: {
+            return {
+                ...state,
+                errors: {
+                    ...state.errors,
+                    auth: {
+                        ...state.errors.auth,
+                        requestPasswordReset: {
+                            message: 'Could not reset password on the server.',
+                            reason: action.payload.error.toString(),
+                        },
+                    },
+                },
+            };
+        }
+        case AuthActionTypes.RESET_PASSWORD_SUCCESS: {
+            return {
+                ...state,
+                messages: {
+                    ...state.messages,
+                    auth: {
+                        ...state.messages.auth,
+                        resetPasswordDone: 'Password has been reset with the new password.',
+                    },
+                },
+            };
+        }
+        case AuthActionTypes.RESET_PASSWORD_FAILED: {
+            return {
+                ...state,
+                errors: {
+                    ...state.errors,
+                    auth: {
+                        ...state.errors.auth,
+                        resetPassword: {
+                            message: 'Could not set new password on the server.',
+                            reason: action.payload.error.toString(),
+                        },
+                    },
+                },
+            };
+        }
+        case AuthActionTypes.LOAD_AUTH_ACTIONS_FAILED: {
+            return {
+                ...state,
+                errors: {
+                    ...state.errors,
+                    auth: {
+                        ...state.errors.auth,
+                        loadAuthActions: {
+                            message: 'Could not check available auth actions',
+                            reason: action.payload.error.toString(),
+                        },
+                    },
+                },
+            };
+        }
         case TasksActionTypes.EXPORT_DATASET_FAILED: {
             const taskID = action.payload.task.id;
             return {
@@ -166,8 +291,9 @@ export default function (state = defaultState, action: AnyAction): Notifications
                     tasks: {
                         ...state.errors.tasks,
                         exporting: {
-                            message: 'Could not export dataset for the '
-                                + `<a href="/tasks/${taskID}" target="_blank">task ${taskID}</a>`,
+                            message:
+                                'Could not export dataset for the ' +
+                                `<a href="/tasks/${taskID}" target="_blank">task ${taskID}</a>`,
                             reason: action.payload.error.toString(),
                         },
                     },
@@ -198,8 +324,9 @@ export default function (state = defaultState, action: AnyAction): Notifications
                     tasks: {
                         ...state.errors.tasks,
                         loading: {
-                            message: 'Could not upload annotation for the '
-                                + `<a href="/tasks/${taskID}" target="_blank">task ${taskID}</a>`,
+                            message:
+                                'Could not upload annotation for the ' +
+                                `<a href="/tasks/${taskID}" target="_blank">task ${taskID}</a>`,
                             reason: action.payload.error.toString(),
                         },
                     },
@@ -214,8 +341,9 @@ export default function (state = defaultState, action: AnyAction): Notifications
                     ...state.messages,
                     tasks: {
                         ...state.messages.tasks,
-                        loadingDone: 'Annotations have been loaded to the '
-                            + `<a href="/tasks/${taskID}" target="_blank">task ${taskID}</a>`,
+                        loadingDone:
+                            'Annotations have been loaded to the ' +
+                            `<a href="/tasks/${taskID}" target="_blank">task ${taskID}</a>`,
                     },
                 },
             };
@@ -229,8 +357,8 @@ export default function (state = defaultState, action: AnyAction): Notifications
                     tasks: {
                         ...state.errors.tasks,
                         updating: {
-                            message: 'Could not update '
-                                + `<a href="/tasks/${taskID}" target="_blank">task ${taskID}</a>`,
+                            message:
+                                'Could not update ' + `<a href="/tasks/${taskID}" target="_blank">task ${taskID}</a>`,
                             reason: action.payload.error.toString(),
                         },
                     },
@@ -246,8 +374,9 @@ export default function (state = defaultState, action: AnyAction): Notifications
                     tasks: {
                         ...state.errors.tasks,
                         dumping: {
-                            message: 'Could not dump annotations for the '
-                                + `<a href="/tasks/${taskID}" target="_blank">task ${taskID}</a>`,
+                            message:
+                                'Could not dump annotations for the ' +
+                                `<a href="/tasks/${taskID}" target="_blank">task ${taskID}</a>`,
                             reason: action.payload.error.toString(),
                         },
                     },
@@ -263,8 +392,9 @@ export default function (state = defaultState, action: AnyAction): Notifications
                     tasks: {
                         ...state.errors.tasks,
                         deleting: {
-                            message: 'Could not delete the '
-                                + `<a href="/tasks/${taskID}" target="_blank">task ${taskID}</a>`,
+                            message:
+                                'Could not delete the ' +
+                                `<a href="/tasks/${taskID}" target="_blank">task ${taskID}</a>`,
                             reason: action.payload.error.toString(),
                         },
                     },
@@ -346,36 +476,6 @@ export default function (state = defaultState, action: AnyAction): Notifications
                 },
             };
         }
-        case ModelsActionTypes.CREATE_MODEL_FAILED: {
-            return {
-                ...state,
-                errors: {
-                    ...state.errors,
-                    models: {
-                        ...state.errors.models,
-                        creating: {
-                            message: 'Could not create the model',
-                            reason: action.payload.error.toString(),
-                        },
-                    },
-                },
-            };
-        }
-        case ModelsActionTypes.DELETE_MODEL_FAILED: {
-            return {
-                ...state,
-                errors: {
-                    ...state.errors,
-                    models: {
-                        ...state.errors.models,
-                        deleting: {
-                            message: 'Could not delete the model',
-                            reason: action.payload.error.toString(),
-                        },
-                    },
-                },
-            };
-        }
         case ModelsActionTypes.GET_INFERENCE_STATUS_SUCCESS: {
             if (action.payload.activeInference.status === 'finished') {
                 const { taskID } = action.payload;
@@ -385,8 +485,9 @@ export default function (state = defaultState, action: AnyAction): Notifications
                         ...state.messages,
                         models: {
                             ...state.messages.models,
-                            inferenceDone: 'Automatic annotation finished for the '
-                                + `<a href="/tasks/${taskID}" target="_blank">task ${taskID}</a>`,
+                            inferenceDone:
+                                'Automatic annotation finished for the ' +
+                                `<a href="/tasks/${taskID}" target="_blank">task ${taskID}</a>`,
                         },
                     },
                 };
@@ -420,8 +521,9 @@ export default function (state = defaultState, action: AnyAction): Notifications
                     models: {
                         ...state.errors.models,
                         inferenceStatusFetching: {
-                            message: 'Could not fetch inference status for the '
-                                + `<a href="/tasks/${taskID}" target="_blank">task ${taskID}</a>`,
+                            message:
+                                'Fetching inference status for the ' +
+                                `<a href="/tasks/${taskID}" target="_blank">task ${taskID}</a>`,
                             reason: action.payload.error.toString(),
                         },
                     },
@@ -452,8 +554,9 @@ export default function (state = defaultState, action: AnyAction): Notifications
                     models: {
                         ...state.errors.models,
                         starting: {
-                            message: 'Could not infer model for the '
-                                + `<a href="/tasks/${taskID}" target="_blank">task ${taskID}</a>`,
+                            message:
+                                'Could not infer model for the ' +
+                                `<a href="/tasks/${taskID}" target="_blank">task ${taskID}</a>`,
                             reason: action.payload.error.toString(),
                         },
                     },
@@ -469,8 +572,9 @@ export default function (state = defaultState, action: AnyAction): Notifications
                     models: {
                         ...state.errors.models,
                         canceling: {
-                            message: 'Could not cancel model inference for the '
-                                + `<a href="/tasks/${taskID}" target="_blank">task ${taskID}</a>`,
+                            message:
+                                'Could not cancel model inference for the ' +
+                                `<a href="/tasks/${taskID}" target="_blank">task ${taskID}</a>`,
                             reason: action.payload.error.toString(),
                         },
                     },
@@ -516,21 +620,6 @@ export default function (state = defaultState, action: AnyAction): Notifications
                         ...state.errors.annotation,
                         saving: {
                             message: 'Could not save annotations',
-                            reason: action.payload.error.toString(),
-                        },
-                    },
-                },
-            };
-        }
-        case AnnotationActionTypes.CHANGE_LABEL_COLOR_FAILED: {
-            return {
-                ...state,
-                errors: {
-                    ...state.errors,
-                    annotation: {
-                        ...state.errors.annotation,
-                        changingLabelColor: {
-                            message: 'Could not change label color',
                             reason: action.payload.error.toString(),
                         },
                     },
@@ -673,16 +762,11 @@ export default function (state = defaultState, action: AnyAction): Notifications
             };
         }
         case AnnotationActionTypes.UPLOAD_JOB_ANNOTATIONS_FAILED: {
-            const {
-                job,
-                error,
-            } = action.payload;
+            const { job, error } = action.payload;
 
             const {
                 id: jobID,
-                task: {
-                    id: taskID,
-                },
+                task: { id: taskID },
             } = job;
 
             return {
@@ -692,8 +776,9 @@ export default function (state = defaultState, action: AnyAction): Notifications
                     annotation: {
                         ...state.errors.annotation,
                         uploadAnnotations: {
-                            message: 'Could not upload annotations for the '
-                                + `<a href="/tasks/${taskID}/jobs/${jobID}" target="_blank">job ${taskID}</a>`,
+                            message:
+                                'Could not upload annotations for the ' +
+                                `<a href="/tasks/${taskID}/jobs/${jobID}" target="_blank">job ${taskID}</a>`,
                             reason: error.toString(),
                         },
                     },
@@ -769,6 +854,21 @@ export default function (state = defaultState, action: AnyAction): Notifications
                         ...state.errors.annotation,
                         search: {
                             message: 'Could not execute search annotations',
+                            reason: action.payload.error.toString(),
+                        },
+                    },
+                },
+            };
+        }
+        case AnnotationActionTypes.SEARCH_EMPTY_FRAME_FAILED: {
+            return {
+                ...state,
+                errors: {
+                    ...state.errors,
+                    annotation: {
+                        ...state.errors.annotation,
+                        searchEmptyFrame: {
+                            message: 'Could not search an empty frame',
                             reason: action.payload.error.toString(),
                         },
                     },

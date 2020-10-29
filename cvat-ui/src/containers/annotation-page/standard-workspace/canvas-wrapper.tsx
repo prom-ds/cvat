@@ -26,6 +26,7 @@ import {
     updateCanvasContextMenu,
     addZLayer,
     switchZLayer,
+    fetchAnnotationsAsync,
 } from 'actions/annotation-actions';
 import {
     switchGrid,
@@ -63,7 +64,8 @@ interface StateToProps {
     opacity: number;
     colorBy: ColorBy;
     selectedOpacity: number;
-    blackBorders: boolean;
+    outlined: boolean;
+    outlineColor: string;
     showBitmap: boolean;
     showProjections: boolean;
     grid: boolean;
@@ -78,15 +80,15 @@ interface StateToProps {
     resetZoom: boolean;
     aamZoomMargin: number;
     showObjectsTextAlways: boolean;
+    showAllInterpolationTracks: boolean;
     workspace: Workspace;
     minZLayer: number;
     maxZLayer: number;
     curZLayer: number;
     automaticBordering: boolean;
-    contextVisible: boolean;
-    contextType: ContextMenuType;
     switchableAutomaticBordering: boolean;
     keyMap: Record<string, ExtendedKeyMapOptions>;
+    canvasBackgroundColor: string;
 }
 
 interface DispatchToProps {
@@ -106,8 +108,7 @@ interface DispatchToProps {
     onSplitAnnotations(sessionInstance: any, frame: number, state: any): void;
     onActivateObject: (activatedStateID: number | null) => void;
     onSelectObjects: (selectedStatesID: number[]) => void;
-    onUpdateContextMenu(visible: boolean, left: number, top: number, type: ContextMenuType,
-        pointID?: number): void;
+    onUpdateContextMenu(visible: boolean, left: number, top: number, type: ContextMenuType, pointID?: number): void;
     onAddZLayer(): void;
     onSwitchZLayer(cur: number): void;
     onChangeBrightnessLevel(level: number): void;
@@ -117,32 +118,17 @@ interface DispatchToProps {
     onChangeGridColor(color: GridColor): void;
     onSwitchGrid(enabled: boolean): void;
     onSwitchAutomaticBordering(enabled: boolean): void;
+    onFetchAnnotation(): void;
 }
 
 function mapStateToProps(state: CombinedState): StateToProps {
     const {
         annotation: {
-            canvas: {
-                activeControl,
-                contextMenu: {
-                    visible: contextVisible,
-                    type: contextType,
-                },
-                instance: canvasInstance,
-            },
-            drawing: {
-                activeLabelID,
-                activeObjectType,
-            },
-            job: {
-                instance: jobInstance,
-            },
+            canvas: { activeControl, instance: canvasInstance },
+            drawing: { activeLabelID, activeObjectType },
+            job: { instance: jobInstance },
             player: {
-                frame: {
-                    data: frameData,
-                    number: frame,
-                    fetching: frameFetching,
-                },
+                frame: { data: frameData, number: frame, fetching: frameFetching },
                 frameAngles,
             },
             annotations: {
@@ -150,17 +136,14 @@ function mapStateToProps(state: CombinedState): StateToProps {
                 activatedStateID,
                 activatedAttributeID,
                 selectedStatesID,
-                zLayer: {
-                    cur: curZLayer,
-                    min: minZLayer,
-                    max: maxZLayer,
-                },
+                zLayer: { cur: curZLayer, min: minZLayer, max: maxZLayer },
             },
             sidebarCollapsed,
             workspace,
         },
         settings: {
             player: {
+                canvasBackgroundColor,
                 grid,
                 gridSize,
                 gridColor,
@@ -170,23 +153,10 @@ function mapStateToProps(state: CombinedState): StateToProps {
                 saturationLevel,
                 resetZoom,
             },
-            workspace: {
-                aamZoomMargin,
-                showObjectsTextAlways,
-                automaticBordering,
-            },
-            shapes: {
-                opacity,
-                colorBy,
-                selectedOpacity,
-                blackBorders,
-                showBitmap,
-                showProjections,
-            },
+            workspace: { aamZoomMargin, showObjectsTextAlways, showAllInterpolationTracks, automaticBordering },
+            shapes: { opacity, colorBy, selectedOpacity, outlined, outlineColor, showBitmap, showProjections },
         },
-        shortcuts: {
-            keyMap,
-        },
+        shortcuts: { keyMap },
     } = state;
 
     return {
@@ -204,7 +174,8 @@ function mapStateToProps(state: CombinedState): StateToProps {
         opacity,
         colorBy,
         selectedOpacity,
-        blackBorders,
+        outlined,
+        outlineColor,
         showBitmap,
         showProjections,
         grid,
@@ -219,17 +190,18 @@ function mapStateToProps(state: CombinedState): StateToProps {
         resetZoom,
         aamZoomMargin,
         showObjectsTextAlways,
+        showAllInterpolationTracks,
         curZLayer,
         minZLayer,
         maxZLayer,
         automaticBordering,
-        contextVisible,
-        contextType,
         workspace,
         keyMap,
-        switchableAutomaticBordering: activeControl === ActiveControl.DRAW_POLYGON
-            || activeControl === ActiveControl.DRAW_POLYLINE
-            || activeControl === ActiveControl.EDIT,
+        canvasBackgroundColor,
+        switchableAutomaticBordering:
+            activeControl === ActiveControl.DRAW_POLYGON ||
+            activeControl === ActiveControl.DRAW_POLYLINE ||
+            activeControl === ActiveControl.EDIT,
     };
 }
 
@@ -287,8 +259,13 @@ function mapDispatchToProps(dispatch: any): DispatchToProps {
         onSelectObjects(selectedStatesID: number[]): void {
             dispatch(selectObjects(selectedStatesID));
         },
-        onUpdateContextMenu(visible: boolean, left: number, top: number,
-            type: ContextMenuType, pointID?: number): void {
+        onUpdateContextMenu(
+            visible: boolean,
+            left: number,
+            top: number,
+            type: ContextMenuType,
+            pointID?: number,
+        ): void {
             dispatch(updateCanvasContextMenu(visible, left, top, pointID, type));
         },
         onAddZLayer(): void {
@@ -318,10 +295,10 @@ function mapDispatchToProps(dispatch: any): DispatchToProps {
         onSwitchAutomaticBordering(enabled: boolean): void {
             dispatch(switchAutomaticBordering(enabled));
         },
+        onFetchAnnotation(): void {
+            dispatch(fetchAnnotationsAsync());
+        },
     };
 }
 
-export default connect(
-    mapStateToProps,
-    mapDispatchToProps,
-)(CanvasWrapperComponent);
+export default connect(mapStateToProps, mapDispatchToProps)(CanvasWrapperComponent);

@@ -1,11 +1,6 @@
-/*
-* Copyright (C) 2019 Intel Corporation
-* SPDX-License-Identifier: MIT
-*/
-
-/* global
-   require:true
-*/
+// Copyright (C) 2020 Intel Corporation
+//
+// SPDX-License-Identifier: MIT
 
 const JSZip = require('jszip');
 
@@ -19,15 +14,27 @@ onmessage = (e) => {
             _zip.forEach((relativePath) => {
                 const fileIndex = index++;
                 if (fileIndex <= end) {
-                    _zip.file(relativePath).async('blob').then((fileData) => {
-                        createImageBitmap(fileData).then((img) => {
-                            postMessage({
-                                fileName: relativePath,
-                                index: fileIndex,
-                                data: img,
-                            });
+                    _zip.file(relativePath)
+                        .async('blob')
+                        .then((fileData) => {
+                            // eslint-disable-next-line no-restricted-globals
+                            if (self.createImageBitmap) {
+                                createImageBitmap(fileData).then((img) => {
+                                    postMessage({
+                                        fileName: relativePath,
+                                        index: fileIndex,
+                                        data: img,
+                                    });
+                                });
+                            } else {
+                                postMessage({
+                                    fileName: relativePath,
+                                    index: fileIndex,
+                                    data: fileData,
+                                    isRaw: true,
+                                });
+                            }
                         });
-                    });
                 }
             });
         });

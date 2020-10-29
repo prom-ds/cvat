@@ -16,32 +16,14 @@ interface ConstructorViewerProps {
     onCreate: () => void;
 }
 
-const colors = [
-    '#ff811e', '#9013fe', '#0074d9',
-    '#549ca4', '#e8c720', '#3d9970',
-    '#6b2034', '#2c344c', '#2ecc40',
-];
-
-let currentColor = 0;
-
-function nextColor(): string {
-    const color = colors[currentColor];
-    currentColor += 1;
-    if (currentColor >= colors.length) {
-        currentColor = 0;
-    }
-    return color;
-}
-
 export default function ConstructorViewer(props: ConstructorViewerProps): JSX.Element {
     const { onCreate } = props;
-    currentColor = 0;
-
     const list = [
         <Button key='create' type='ghost' onClick={onCreate} className='cvat-constructor-viewer-new-item'>
             Add label
             <Icon type='plus-circle' />
-        </Button>];
+        </Button>,
+    ];
     for (const label of props.labels) {
         list.push(
             <ConstructorViewerItem
@@ -49,14 +31,10 @@ export default function ConstructorViewer(props: ConstructorViewerProps): JSX.El
                 onDelete={props.onDelete}
                 label={label}
                 key={label.id}
-                color={nextColor()}
+                color={label.color}
             />,
         );
     }
 
-    return (
-        <div className='cvat-constructor-viewer'>
-            { list }
-        </div>
-    );
+    return <div className='cvat-constructor-viewer'>{list}</div>;
 }
